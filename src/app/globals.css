@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f6f4f0;
+  --surface: #ffffff;
+  --border: #e7e3da;
+}
+
+* { -webkit-font-smoothing: antialiased; }
+
+body { background: var(--bg); color: theme('colors.ink'); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: #d8d3c6;
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+}
+
+:focus-visible {
+  outline: 2px solid theme('colors.brand.400');
+  outline-offset: 2px;
+}
+
+/* Filete noite -> alvorada: assinatura da marca Domani */
+.domani-horizon {
+  height: 2px;
+  background: linear-gradient(90deg, #1d1d1f 0%, #e56d23 100%);
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
