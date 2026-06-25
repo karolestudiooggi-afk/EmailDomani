@@ -39,6 +39,7 @@ function Icon({ children }: { children: React.ReactNode }) {
 export function RichEditor({ value, onChange, clientId }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const colorRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<'visual' | 'html'>('visual');
   const [uploading, setUploading] = useState(false);
   const [color, setColor] = useState('#e56d23');
@@ -124,11 +125,26 @@ export function RichEditor({ value, onChange, clientId }: Props) {
         <button type="button" className={tool} onClick={() => exec('justifyCenter')} title="Centralizar"><Icon>{I.alignCenter}</Icon></button>
         <button type="button" className={tool} onClick={() => exec('justifyRight')} title="Alinhar à direita"><Icon>{I.alignRight}</Icon></button>
         <span className="mx-1 h-5 w-px bg-[var(--border)]" />
-        <label className={`${tool} relative cursor-pointer`} title="Cor do texto" style={{ color }}>
+        <button
+          type="button"
+          className={`${tool} relative`}
+          title="Cor do texto"
+          style={{ color }}
+          onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
+          onClick={() => colorRef.current?.click()}
+        >
           <span className="text-[15px] font-semibold leading-none">A</span>
           <span className="absolute bottom-1 h-1 w-4 rounded" style={{ background: color }} />
-          <input type="color" value={color} onChange={(e) => { setColor(e.target.value); exec('foreColor', e.target.value); }} className="absolute inset-0 cursor-pointer opacity-0" />
-        </label>
+        </button>
+        <input
+          ref={colorRef}
+          type="color"
+          value={color}
+          onChange={(e) => { setColor(e.target.value); restoreSelection(); exec('foreColor', e.target.value); }}
+          className="pointer-events-none absolute h-0 w-0 opacity-0"
+          tabIndex={-1}
+          aria-hidden
+        />
         <button type="button" className={tool} onMouseDown={(e) => { e.preventDefault(); saveSelection(); }} onClick={() => setLinkOpen((v) => !v)} title="Inserir link"><Icon>{I.link}</Icon></button>
         <span className="mx-1 h-5 w-px bg-[var(--border)]" />
         <button

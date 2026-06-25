@@ -2,7 +2,7 @@
 
 import { useApi, api } from '../../lib/client-api';
 import { useMe } from '../../lib/use-me';
-import { PageHeader, Card, EmptyState } from '../../components/ui';
+import { PageHeader, Card, EmptyState, Select } from '../../components/ui';
 import type { Profile } from '../../types';
 
 export default function UsersPage() {
@@ -57,14 +57,15 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <select
+                    <Select
                       value={u.role}
-                      onChange={(e) => setRole(u.id, e.target.value as 'admin' | 'operator')}
-                      className="rounded-lg border border-[var(--border)] bg-white px-2.5 py-1.5 text-sm text-ink focus:border-brand-400"
-                    >
-                      <option value="operator">Operador</option>
-                      <option value="admin">Administrador</option>
-                    </select>
+                      onChange={(v) => setRole(u.id, v as 'admin' | 'operator')}
+                      options={[
+                        { value: 'operator', label: 'Operador' },
+                        { value: 'admin', label: 'Administrador' },
+                      ]}
+                      className="inline-block min-w-[150px] text-left"
+                    />
                   </td>
                 </tr>
               ))}

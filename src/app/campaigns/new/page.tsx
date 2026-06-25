@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useApi, api } from '../../../lib/client-api';
 import { useSelectedClient } from '../../../lib/use-client';
 import { ClientPicker } from '../../../components/ClientPicker';
-import { PageHeader, Card, Button, Field, Input, EmptyState } from '../../../components/ui';
+import { PageHeader, Card, Button, Field, Input, EmptyState, Select } from '../../../components/ui';
+import { RichEditor } from '../../../components/RichEditor';
 import type { Template } from '../../../types';
 
 interface ListRow { id: string; name: string; count: number; }
@@ -86,11 +87,12 @@ export default function NewCampaignPage() {
               <div className="space-y-4">
                 <Field label="Nome da campanha"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Newsletter de Junho" /></Field>
                 <Field label="Lista de contatos">
-                  <select value={listId} onChange={(e) => setListId(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-ink focus:border-brand-400">
-                    <option value="">Selecione uma lista…</option>
-                    {lists.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.count} contatos)</option>)}
-                  </select>
+                  <Select
+                    value={listId}
+                    onChange={setListId}
+                    placeholder="Selecione uma lista…"
+                    options={lists.map((l) => ({ value: l.id, label: `${l.name} (${l.count} contatos)` }))}
+                  />
                 </Field>
                 {selectedList && <p className="text-sm text-brand-600">Vai para <strong>{selectedList.count}</strong> contatos.</p>}
               </div>
@@ -108,16 +110,16 @@ export default function NewCampaignPage() {
               <h2 className="mb-4 font-display text-lg text-ink">3. Mensagem</h2>
               <div className="space-y-4">
                 <Field label="Usar template (opcional)">
-                  <select value={templateId} onChange={(e) => applyTemplate(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-ink focus:border-brand-400">
-                    <option value="">Escrever do zero…</option>
-                    {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  <Select
+                    value={templateId}
+                    onChange={applyTemplate}
+                    placeholder="Escrever do zero…"
+                    options={templates.map((t) => ({ value: t.id, label: t.name }))}
+                  />
                 </Field>
                 <Field label="Assunto"><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></Field>
-                <Field label="Conteúdo HTML" hint="Variáveis: {{nome}}, {{email}}, {{empresa}}, {{assinatura}} e colunas da planilha.">
-                  <textarea value={html} onChange={(e) => setHtml(e.target.value)} rows={10}
-                    className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 font-mono text-xs text-ink focus:border-brand-400" placeholder="<h2>Olá, {{nome}}!</h2>" />
+                <Field label="Conteúdo do e-mail" hint="Formate, insira imagem ou variáveis pela barra.">
+                  <RichEditor value={html} onChange={setHtml} clientId={clientId} />
                 </Field>
               </div>
             </Card>
