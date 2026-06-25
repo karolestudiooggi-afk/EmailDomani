@@ -35,6 +35,14 @@ melhoria futura.
 
 ---
 
+## Editor de e-mail (blocos)
+
+Templates e campanhas usam um **editor visual de blocos** (Unlayer): arraste
+imagem, botão, colunas e texto. As imagens sobem para o **Storage do Supabase**
+(bucket público **`email-assets`** — crie em Storage → New bucket → Public) e
+entram no e-mail por URL pública; o HTML gerado sai pelo SMTP do cliente como
+qualquer outro. O design fica salvo (coluna `templates.design`) para reedição.
+
 ## Descadastro & conformidade
 
 Todo e-mail sai com um link de descadastro no rodapé (injetado automaticamente
@@ -71,7 +79,7 @@ Gmail e o Yahoo exigem para envio em massa. Ao descadastrar, o contato vira
 
 ### 1. Banco (Supabase)
 1. Crie o projeto e rode, no SQL Editor, em ordem:
-   `0001_init.sql`, `0003_clients.sql` e `0004_roles_limits.sql`.
+   `0001_init.sql`, `0003_clients.sql`, `0004_roles_limits.sql` e `0005_template_design.sql`.
 2. Em Storage, crie um bucket privado `imports`.
 3. Pegue URL, anon key e service_role key em Settings → API.
 

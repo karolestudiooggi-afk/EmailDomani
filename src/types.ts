@@ -52,6 +52,7 @@ export interface Template {
   name: string;
   subject: string;
   html: string;
+  design: unknown | null;
   created_at: string;
   updated_at: string;
 }

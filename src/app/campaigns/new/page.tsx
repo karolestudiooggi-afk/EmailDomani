@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useApi, api } from '../../../lib/client-api';
 import { useSelectedClient } from '../../../lib/use-client';
 import { ClientPicker } from '../../../components/ClientPicker';
 import { PageHeader, Card, Button, Field, Input, EmptyState, Select } from '../../../components/ui';
-import { RichEditor } from '../../../components/RichEditor';
 import type { Template } from '../../../types';
 
 interface ListRow { id: string; name: string; count: number; }
@@ -23,30 +23,37 @@ export default function NewCampaignPage() {
   const [listId, setListId] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [subject, setSubject] = useState('');
-  const [html, setHtml] = useState('');
   const [fromName, setFromName] = useState('');
   const [fromEmail, setFromEmail] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // remetente puxa do cliente selecionado
   useEffect(() => {
     if (selected) { setFromName(selected.from_name); setFromEmail(selected.from_email); }
   }, [selected]);
 
-  function applyTemplate(id: string) {
-    setTemplateId(id);
-    const t = templates.find((x) => x.id === id);
-    if (t) { setSubject(t.subject); setHtml(t.html); }
-  }
-
+  const selectedTemplate = templates.find((t) => t.id === templateId);
   const selectedList = lists.find((l) => l.id === listId);
 
+  function pickTemplate(id: string) {
+    setTemplateId(id);
+    const t = templates.find((x) => x.id === id);
+    if (t) setSubject(t.subject); // assunto começa do template (editável)
+  }
+
+  // prévia do template selecionado, com variáveis de exemplo
+  const preview = (selectedTemplate?.html ?? '')
+    .replace(/\{\{\s*nome\s*\}\}/g, 'Maria')
+    .replace(/\{\{\s*email\s*\}\}/g, 'maria@email.com')
+    .replace(/\{\{\s*empresa\s*\}\}/g, selected?.brand_name ?? 'Empresa')
+    .replace(/\{\{\s*assinatura\s*\}\}/g, selected?.brand_fields?.assinatura ?? '');
+
   async function submit(mode: 'now' | 'schedule' | 'draft') {
-    if (!clientId || !name.trim() || !listId || !subject.trim() || !html.trim() || !fromEmail.trim()) {
-      setErr('Preencha cliente, nome, lista, remetente, assunto e conteúdo.'); return;
+    if (!clientId || !name.trim() || !listId || !templateId || !subject.trim() || !fromEmail.trim()) {
+      setErr('Preencha nome, lista, template, remetente e assunto.'); return;
     }
+    if (!selectedTemplate) { setErr('Selecione um template.'); return; }
     if (mode === 'schedule' && !scheduledAt) { setErr('Escolha a data e a hora do agendamento.'); return; }
     setBusy(true); setErr(null);
     try {
@@ -54,8 +61,9 @@ export default function NewCampaignPage() {
       const { campaign } = await api<{ campaign: { id: string } }>('/api/campaigns', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId, name: name.trim(), listId, templateId: templateId || null,
-          subject: subject.trim(), html, fromName: fromName.trim(), fromEmail: fromEmail.trim(),
+          clientId, name: name.trim(), listId, templateId,
+          subject: subject.trim(), html: selectedTemplate.html,
+          fromName: fromName.trim(), fromEmail: fromEmail.trim(),
           scheduledAt: iso,
         }),
       });
@@ -64,16 +72,11 @@ export default function NewCampaignPage() {
     } catch (e) { setErr((e as Error).message); setBusy(false); }
   }
 
-  const preview = html
-    .replace(/\{\{\s*nome\s*\}\}/g, 'Maria')
-    .replace(/\{\{\s*empresa\s*\}\}/g, selected?.brand_name ?? 'Empresa')
-    .replace(/\{\{\s*assinatura\s*\}\}/g, selected?.brand_fields?.assinatura ?? '');
-
   return (
     <>
       <PageHeader
         title="Nova campanha"
-        subtitle="Configure e dispare pelo SMTP do cliente"
+        subtitle="Escolha a lista e o template — e dispare pelo SMTP do cliente"
         action={!lc && <ClientPicker clients={clients} clientId={clientId} onChange={setClientId} />}
       />
 
@@ -107,26 +110,33 @@ export default function NewCampaignPage() {
             </Card>
 
             <Card className="p-5">
-              <h2 className="mb-4 font-display text-lg text-ink">3. Mensagem</h2>
-              <div className="space-y-4">
-                <Field label="Usar template (opcional)">
-                  <Select
-                    value={templateId}
-                    onChange={applyTemplate}
-                    placeholder="Escrever do zero…"
-                    options={templates.map((t) => ({ value: t.id, label: t.name }))}
-                  />
-                </Field>
-                <Field label="Assunto"><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></Field>
-                <Field label="Conteúdo do e-mail" hint="Formate, insira imagem ou variáveis pela barra.">
-                  <RichEditor value={html} onChange={setHtml} clientId={clientId} />
-                </Field>
-              </div>
+              <h2 className="mb-4 font-display text-lg text-ink">3. Conteúdo</h2>
+              {templates.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--border)] bg-stone-50 px-4 py-6 text-center text-sm text-ink/60">
+                  Nenhum template para este cliente ainda.{' '}
+                  <Link href="/templates" className="font-medium text-brand-600 hover:underline">Criar um template</Link> primeiro.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Field label="Template" hint="O conteúdo é montado na aba Templates. Aqui você só escolhe qual usar.">
+                    <Select
+                      value={templateId}
+                      onChange={pickTemplate}
+                      placeholder="Selecione um template…"
+                      options={templates.map((t) => ({ value: t.id, label: t.name }))}
+                    />
+                  </Field>
+                  <Field label="Assunto" hint="Começa do template — edite se quiser."><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></Field>
+                  {selectedTemplate && (
+                    <Link href="/templates" className="inline-block text-xs text-brand-600 hover:underline">✎ Editar este template na aba Templates</Link>
+                  )}
+                </div>
+              )}
             </Card>
 
             <Card className="p-5">
               <h2 className="mb-4 font-display text-lg text-ink">4. Quando enviar</h2>
-              <Field label="Agendar para (opcional)" hint="Deixe vazio para disparar na hora. Agendado, o envio começa sozinho no horário.">
+              <Field label="Agendar para (opcional)" hint="Vazio = dispara na hora. Agendado, começa sozinho no horário.">
                 <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
               </Field>
             </Card>
@@ -141,11 +151,15 @@ export default function NewCampaignPage() {
 
           <div className="lg:sticky lg:top-10 lg:self-start">
             <Card className="overflow-hidden">
-              <div className="border-b border-[var(--border)] bg-stone-50 px-5 py-2.5 text-xs font-medium uppercase tracking-wide text-ink/45">Pré-visualização</div>
-              {html ? (
+              <div className="border-b border-[var(--border)] bg-stone-50 px-5 py-2.5 text-xs font-medium uppercase tracking-wide text-ink/45">
+                Prévia do template
+              </div>
+              {selectedTemplate ? (
                 <iframe title="preview" className="h-[640px] w-full bg-white" srcDoc={preview} />
               ) : (
-                <div className="flex h-[640px] items-center justify-center text-sm text-ink/40">A prévia aparece aqui conforme você escreve.</div>
+                <div className="flex h-[640px] items-center justify-center px-6 text-center text-sm text-ink/40">
+                  Selecione um template para ver a prévia do e-mail.
+                </div>
               )}
             </Card>
           </div>

@@ -16,6 +16,7 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   subject: z.string().min(1).optional(),
   html: z.string().min(1).optional(),
+  design: z.any().optional(),
 });
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {

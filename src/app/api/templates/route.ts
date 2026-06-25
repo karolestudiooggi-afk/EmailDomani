@@ -20,6 +20,7 @@ const createSchema = z.object({
   name: z.string().min(1),
   subject: z.string().min(1),
   html: z.string().min(1),
+  design: z.any().optional(),
 });
 
 export async function POST(req: Request) {
