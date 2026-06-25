@@ -6,23 +6,55 @@
   --bg: #f6f4f0;
   --surface: #ffffff;
   --border: #e7e3da;
+  --brand: #e56d23;
 }
 
 * { -webkit-font-smoothing: antialiased; }
 
 body { background: var(--bg); color: theme('colors.ink'); }
 
+/* ─── Scrollbar com a cara da Domani ─────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: #d9d3c6 transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #d8d3c6;
-  border-radius: 8px;
-  border: 2px solid var(--bg);
+  background: #d9d3c6;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  transition: background 0.2s;
 }
+::-webkit-scrollbar-thumb:hover { background: var(--brand); background-clip: content-box; }
+/* sidebar (fundo escuro) tem thumb mais claro */
+.scroll-dark::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); background-clip: content-box; }
+.scroll-dark::-webkit-scrollbar-thumb:hover { background: var(--brand); background-clip: content-box; }
 
-:focus-visible {
-  outline: 2px solid theme('colors.brand.400');
-  outline-offset: 2px;
+/* ─── Selects estilizados em TODO o app (chevron próprio) ─────────────────── */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  padding-right: 2rem !important;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+select:hover { border-color: #cfc8b8; }
+select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(229,109,35,0.15); }
+
+/* inputs com transição suave de foco */
+input[type="text"], input[type="email"], input[type="password"], input[type="datetime-local"], textarea {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(229,109,35,0.12); }
+
+/* feedback de clique universal em botões */
+button:not(:disabled):active { transform: translateY(0.5px) scale(0.985); }
+button { transition: transform 0.08s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease; }
+
+:focus-visible { outline: 2px solid theme('colors.brand.400'); outline-offset: 2px; }
 
 /* Filete noite -> alvorada: assinatura da marca Domani */
 .domani-horizon {

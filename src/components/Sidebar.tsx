@@ -26,7 +26,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 h-screen w-60 shrink-0 border-r border-[var(--border)] bg-ink text-white/85">
+    <aside className="scroll-dark sticky top-0 h-screen w-60 shrink-0 overflow-y-auto border-r border-[var(--border)] bg-ink text-white/85">
       <div className="flex h-full flex-col px-4 py-6">
         <div className="px-2 pb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
