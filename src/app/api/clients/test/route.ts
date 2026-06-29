@@ -1,22 +1,11 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { verifySmtp } from '../../../../lib/email/transporter';
+import { verifyAgencySmtp } from '../../../../lib/email/transporter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const schema = z.object({
-  host: z.string().min(1),
-  port: z.coerce.number().int().positive(),
-  secure: z.boolean(),
-  user: z.string().min(1),
-  pass: z.string().min(1),
-});
-
-/** POST /api/clients/test — verifica se as credenciais SMTP conectam. */
-export async function POST(req: Request) {
-  const body = schema.safeParse(await req.json());
-  if (!body.success) return NextResponse.json({ ok: false, error: 'Dados incompletos' }, { status: 400 });
-  const result = await verifySmtp(body.data);
+/** POST /api/clients/test — testa o SMTP da AGÊNCIA (configurado no .env). */
+export async function POST() {
+  const result = await verifyAgencySmtp();
   return NextResponse.json(result);
 }

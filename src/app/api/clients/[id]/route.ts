@@ -19,11 +19,6 @@ const schema = z.object({
   brandName: z.string().min(1),
   fromName: z.string().min(1),
   fromEmail: z.string().email(),
-  smtpHost: z.string().nullable().optional(),
-  smtpPort: z.coerce.number().int().positive().nullable().optional(),
-  smtpSecure: z.boolean().nullable().optional(),
-  smtpUser: z.string().nullable().optional(),
-  smtpPass: z.string().nullable().optional(),
   dailyLimit: z.coerce.number().int().positive().optional(),
   brandFields: z.record(z.string()).optional(),
 });

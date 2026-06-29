@@ -1,10 +1,9 @@
 import { supabaseAdmin } from '../lib/supabase/server';
 import { renderForSend, unsubscribePostUrl } from '../lib/email/render';
 import { sendOne, fromAddress } from '../lib/email/send';
-import { buildTransporter } from '../lib/email/transporter';
+import { buildAgencyTransporter } from '../lib/email/transporter';
 import { enqueueCampaign } from './campaigns.service';
 import { env } from '../lib/env';
-import type { Transporter } from 'nodemailer';
 
 interface PendingRow {
   id: string;
@@ -20,11 +19,6 @@ interface ClientRow {
   brand_name: string;
   brand_fields: Record<string, string>;
   daily_limit: number;
-  smtp_host: string | null;
-  smtp_port: number | null;
-  smtp_secure: boolean | null;
-  smtp_user: string | null;
-  smtp_pass_enc: string | null;
 }
 
 /**
@@ -61,11 +55,11 @@ export async function processDispatchBatch(): Promise<{
     return { released, processed: 0, sent: 0, failed: 0 };
   }
 
-  // clientes envolvidos (com limite e SMTP)
+  // clientes envolvidos (limite + dados de marca; SMTP agora é da agência)
   const clientIds = [...new Set(pending.map((p) => p.campaigns.client_id))];
   const { data: clientsData } = await db
     .from('clients')
-    .select('id, brand_name, brand_fields, daily_limit, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass_enc')
+    .select('id, brand_name, brand_fields, daily_limit')
     .in('id', clientIds);
   const clients = new Map((clientsData ?? []).map((c) => [c.id, c as ClientRow]));
 
@@ -77,7 +71,7 @@ export async function processDispatchBatch(): Promise<{
     remaining.set(id, Math.max(0, limit - (Number(usedToday) || 0)));
   }
 
-  const transporters = new Map<string, { transporter: Transporter; mock: boolean }>();
+  const agency = buildAgencyTransporter();
   const now = () => new Date().toISOString();
   let sent = 0;
   let failed = 0;
@@ -93,8 +87,7 @@ export async function processDispatchBatch(): Promise<{
     // cota do cliente esgotada hoje → deixa pendente para o próximo dia/lote
     if ((remaining.get(clientId) ?? 0) <= 0) continue;
 
-    if (!transporters.has(clientId)) transporters.set(clientId, buildTransporter(client));
-    const { transporter, mock } = transporters.get(clientId)!;
+    const { transporter, mock } = agency;
 
     const vars: Record<string, string> = {
       ...client.brand_fields,

@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 /**
  * Validação centralizada de env (server-only).
- * Cada cliente tem seu próprio SMTP (guardado no banco, criptografado), então
- * não há SMTP global. Cliente sem SMTP cadastrado roda em modo mock (loga).
+ * SMTP ÚNICO DA AGÊNCIA (uma conta SendPulse com vários domínios). Cada cliente
+ * só define o remetente (from_name/from_email); o transporte é o mesmo pra todos.
+ * Sem SMTP_HOST → modo mock (loga, não envia).
  */
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -16,8 +17,14 @@ const schema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
-  // Chave de criptografia das senhas SMTP dos clientes (32 bytes hex ou base64).
-  // Gere com:  openssl rand -hex 32
+  // SMTP da agência (conta SendPulse). Sem host → mock.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z.coerce.boolean().default(false), // 465 = true; 587 = false (STARTTLS)
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+
+  // Chave de criptografia (mantida p/ compatibilidade; não mais usada no envio).
   ENCRYPTION_KEY: z.string().min(16).default('dev-only-key-troque-em-producao!!'),
 
   // Fila

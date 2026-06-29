@@ -23,7 +23,7 @@ export default function ClientsPage() {
     <>
       <PageHeader
         title="Clientes"
-        subtitle="Cada cliente envia pelo SMTP dele, com a marca dele"
+        subtitle="Cada cliente envia do domínio dele, com a marca dele"
         action={isAdmin ? <Button onClick={() => setEditing('new')}>Novo cliente</Button> : undefined}
       />
 
@@ -41,7 +41,7 @@ export default function ClientsPage() {
       ) : clients.length === 0 ? (
         <EmptyState
           title="Nenhum cliente"
-          description="Cadastre um cliente, conecte o SMTP dele e comece a disparar com a marca dele."
+          description="Cadastre um cliente e o remetente dele para começar a disparar com a marca dele."
           action={isAdmin ? <Button onClick={() => setEditing('new')}>Cadastrar cliente</Button> : undefined}
         />
       ) : (
@@ -51,15 +51,9 @@ export default function ClientsPage() {
               <h3 className="font-display text-lg text-ink">{c.brand_name}</h3>
               <p className="mt-0.5 text-sm text-ink/50">{c.from_email}</p>
               <div className="mt-3">
-                {c.smtp_host ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500" /> SMTP conectado
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-xs font-medium text-amber-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> sem SMTP
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500" /> {c.daily_limit.toLocaleString('pt-BR')}/dia
+                </span>
               </div>
               {isAdmin && (
                 <Button variant="ghost" onClick={() => setEditing(c)} className="mt-4">
@@ -87,10 +81,6 @@ function ClientForm({
   const [brandName, setBrandName] = useState(client?.brand_name ?? '');
   const [fromName, setFromName] = useState(client?.from_name ?? '');
   const [fromEmail, setFromEmail] = useState(client?.from_email ?? '');
-  const [smtpHost, setSmtpHost] = useState(client?.smtp_host ?? 'smtp.sendpulse.com');
-  const [smtpPort, setSmtpPort] = useState(String(client?.smtp_port ?? 587));
-  const [smtpUser, setSmtpUser] = useState(client?.smtp_user ?? '');
-  const [smtpPass, setSmtpPass] = useState('');
   const [dailyLimit, setDailyLimit] = useState(String(client?.daily_limit ?? 2000));
   const [signature, setSignature] = useState(client?.brand_fields?.assinatura ?? '');
 
@@ -100,25 +90,11 @@ function ClientForm({
   const [err, setErr] = useState<string | null>(null);
 
   async function testConnection() {
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      setTestMsg('Preencha host, usuário e senha para testar.');
-      return;
-    }
     setTesting(true);
     setTestMsg(null);
     try {
-      const res = await api<{ ok: boolean; error?: string }>('/api/clients/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: smtpHost,
-          port: Number(smtpPort),
-          secure: Number(smtpPort) === 465,
-          user: smtpUser,
-          pass: smtpPass,
-        }),
-      });
-      setTestMsg(res.ok ? '✓ Conexão SMTP funcionou.' : `Falhou: ${res.error}`);
+      const res = await api<{ ok: boolean; error?: string }>('/api/clients/test', { method: 'POST' });
+      setTestMsg(res.ok ? '✓ SMTP da agência conectou.' : `Falhou: ${res.error}`);
     } catch (e) {
       setTestMsg((e as Error).message);
     } finally {
@@ -139,11 +115,6 @@ function ClientForm({
         brandName: brandName.trim(),
         fromName: fromName.trim(),
         fromEmail: fromEmail.trim(),
-        smtpHost: smtpHost.trim() || null,
-        smtpPort: Number(smtpPort) || 587,
-        smtpSecure: Number(smtpPort) === 465,
-        smtpUser: smtpUser.trim() || null,
-        smtpPass: smtpPass || null, // só envia se mudou
         dailyLimit: Number(dailyLimit) || 2000,
         brandFields: { assinatura: signature },
       };
@@ -180,7 +151,7 @@ function ClientForm({
             <Field label="Remetente (nome)">
               <Input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Privillège" />
             </Field>
-            <Field label="Remetente (e-mail)">
+            <Field label="Remetente (e-mail)" hint="O domínio deve estar autenticado na conta SendPulse da agência.">
               <Input value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} placeholder="contato@cliente.com.br" />
             </Field>
           </div>
@@ -191,28 +162,17 @@ function ClientForm({
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-1 font-display text-lg text-ink">Conexão SMTP</h2>
+        <h2 className="mb-1 font-display text-lg text-ink">Envio</h2>
         <p className="mb-4 text-xs text-ink/50">
-          As credenciais de envio do cliente. A senha é guardada criptografada.
+          O SMTP é único da agência (conta SendPulse), configurado no servidor. Cada cliente envia
+          do <strong>próprio domínio</strong> (o remetente ao lado) por essa conta.
         </p>
         <div className="space-y-4">
-          <Field label="Host SMTP">
-            <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.sendpulse.com" />
-          </Field>
-          <Field label="Porta" hint="SendPulse: 587 (recomendada) ou 465. O TLS é definido sozinho pela porta.">
-            <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" />
-          </Field>
-          <Field label="Usuário">
-            <Input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} placeholder="login do SMTP" />
-          </Field>
-          <Field label="Senha" hint={client ? 'Deixe em branco para manter a senha atual.' : undefined}>
-            <Input type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="••••••••" />
-          </Field>
-          <Field label="Limite diário deste cliente" hint="Teto de envios por dia. A cota do SendPulse é por conta — um cliente nunca consome a de outro.">
+          <Field label="Limite diário deste cliente" hint="Teto de envios por dia para este cliente.">
             <Input value={dailyLimit} onChange={(e) => setDailyLimit(e.target.value)} placeholder="2000" />
           </Field>
           <Button variant="ghost" onClick={testConnection} disabled={testing}>
-            {testing ? 'Testando…' : 'Testar conexão'}
+            {testing ? 'Testando…' : 'Testar SMTP da agência'}
           </Button>
           {testMsg && (
             <p className={`text-sm ${testMsg.startsWith('✓') ? 'text-brand-600' : 'text-amber-500'}`}>{testMsg}</p>

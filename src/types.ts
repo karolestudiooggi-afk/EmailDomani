@@ -9,14 +9,9 @@ export interface Client {
   brand_name: string;
   from_name: string;
   from_email: string;
-  smtp_host: string | null;
-  smtp_port: number | null;
-  smtp_secure: boolean | null;
-  smtp_user: string | null;
   daily_limit: number;
   brand_fields: Record<string, string>;
   created_at: string;
-  // smtp_pass_enc nunca é exposto ao client
 }
 
 export type Role = 'admin' | 'operator';

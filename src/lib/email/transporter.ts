@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { decrypt } from '../crypto';
+import { env } from '../env';
 
 export interface ClientSmtp {
   smtp_host: string | null;
@@ -18,8 +19,38 @@ function isDirectTls(port: number, secureFlag: boolean | null): boolean {
 }
 
 /**
- * Constrói um transporter a partir das credenciais SMTP de um cliente.
- * Sem smtp_host → transporter mock (jsonTransport): não envia, só devolve.
+ * Transporter ÚNICO da agência (conta SendPulse), lido do .env.
+ * É o mesmo para todos os clientes — o que muda por cliente é só o remetente
+ * (from_name/from_email). Sem SMTP_HOST no .env → modo mock (loga, não envia).
+ */
+let _agency: { transporter: Transporter; mock: boolean } | null = null;
+
+export function buildAgencyTransporter(): { transporter: Transporter; mock: boolean } {
+  if (_agency) return _agency;
+
+  if (!env.SMTP_HOST) {
+    _agency = { transporter: nodemailer.createTransport({ jsonTransport: true }), mock: true };
+    return _agency;
+  }
+  const port = env.SMTP_PORT;
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port,
+    secure: isDirectTls(port, env.SMTP_SECURE),
+    auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS ?? '' } : undefined,
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 50,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+  });
+  _agency = { transporter, mock: false };
+  return _agency;
+}
+
+/**
+ * (Legado) Constrói um transporter a partir do SMTP de um cliente.
+ * Mantido por compatibilidade; o envio agora usa buildAgencyTransporter().
  */
 export function buildTransporter(c: ClientSmtp): { transporter: Transporter; mock: boolean } {
   if (!c.smtp_host) {
@@ -36,10 +67,22 @@ export function buildTransporter(c: ClientSmtp): { transporter: Transporter; moc
     pool: true,
     maxConnections: 3,
     maxMessages: 50,
-    connectionTimeout: 15000, // 15s para abrir o socket
+    connectionTimeout: 15000,
     greetingTimeout: 15000,
   });
   return { transporter, mock: false };
+}
+
+/** Verifica se o SMTP da agência (do .env) conecta. Usado no botão "testar conexão". */
+export async function verifyAgencySmtp(): Promise<{ ok: boolean; error?: string }> {
+  if (!env.SMTP_HOST) return { ok: false, error: 'SMTP_HOST não configurado no .env.' };
+  return verifySmtp({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_SECURE,
+    user: env.SMTP_USER ?? '',
+    pass: env.SMTP_PASS ?? '',
+  });
 }
 
 /** Verifica se as credenciais conectam (tela "testar conexão"). */
