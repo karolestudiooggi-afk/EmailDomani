@@ -4,9 +4,10 @@ import { env } from '../../../lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// Sem limite prático na VPS (essa linha só vale na Vercel).
+export const maxDuration = 300;
 
-/** Chamado pelo Vercel Cron (ver vercel.json) e pelo botão "processar fila". */
+/** Chamado pelo cron do sistema (crontab) e pelo botão "processar fila". */
 export async function GET(req: Request) {
   if (env.CRON_SECRET) {
     const auth = req.headers.get('authorization');

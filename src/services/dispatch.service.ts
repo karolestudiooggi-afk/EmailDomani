@@ -22,6 +22,14 @@ interface ClientRow {
 }
 
 /**
+ * Trava de execução: o cron roda a cada minuto, mas um lote grande pode demorar
+ * mais que isso. Sem essa trava, a execução seguinte pegaria as MESMAS linhas
+ * ainda pendentes e o contato receberia o e-mail duplicado.
+ * (Vale para 1 processo — mantenha o PM2 em modo fork, não cluster.)
+ */
+let dispatchRunning = false;
+
+/**
  * Worker do cron. A cada minuto:
  *  1. libera campanhas agendadas cujo horário chegou;
  *  2. processa um lote da fila, respeitando o LIMITE DIÁRIO DE CADA CLIENTE
@@ -32,7 +40,12 @@ export async function processDispatchBatch(): Promise<{
   processed: number;
   sent: number;
   failed: number;
+  skipped?: boolean;
 }> {
+  // já tem um lote rodando → sai sem fazer nada (evita envio duplicado)
+  if (dispatchRunning) return { released: 0, processed: 0, sent: 0, failed: 0, skipped: true };
+  dispatchRunning = true;
+  try {
   const db = supabaseAdmin();
 
   const released = await releaseScheduledCampaigns(db);
@@ -123,6 +136,9 @@ export async function processDispatchBatch(): Promise<{
 
   await closeFinishedCampaigns(db);
   return { released, processed: pending.length, sent, failed };
+  } finally {
+    dispatchRunning = false;
+  }
 }
 
 /** Enfileira campanhas 'queued' cujo horário agendado já chegou. */
