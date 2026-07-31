@@ -63,8 +63,8 @@ export async function importContactsFromBuffer(
   }
 
   let imported = 0;
-  for (let i = 0; i < toInsert.length; i += 500) {
-    const chunk = toInsert.slice(i, i + 500);
+  for (let i = 0; i < toInsert.length; i += 1000) {
+    const chunk = toInsert.slice(i, i + 1000);
     const { error } = await db
       .from('contacts')
       .upsert(chunk, { onConflict: 'list_id,email', ignoreDuplicates: true });

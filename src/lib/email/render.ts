@@ -32,19 +32,37 @@ function pixel(sendId: string): string {
 
 function rewriteLinks(html: string, sendId: string): string {
   return html.replace(/href="(https?:\/\/[^"]+)"/g, (_m, url: string) => {
+    // não reescreve links que já apontam para o próprio sistema (evita duplicar tracking)
+    if (url.startsWith(env.APP_URL)) return `href="${url}"`;
     return `href="${env.APP_URL}/api/track/${sendId}?to=${encodeURIComponent(url)}"`;
   });
 }
 
-/** Rodapé de descadastro — injetado se o template ainda não tiver um. */
-function unsubscribeFooter(sendId: string): string {
+/** Rodapé de descadastro — injetado se o template ainda não tiver um.
+ *  Usa o nome do cliente ({{empresa}}) e o site (domínio do remetente). */
+function unsubscribeFooter(sendId: string, brand: string, site: string): string {
+  const nome = brand || 'Nós';
+  const siteLine = site
+    ? `<a href="https://${site}" style="color:#8a8784;text-decoration:none">${site}</a><br />`
+    : '';
   return (
-    `<div style="margin-top:28px;padding-top:16px;border-top:1px solid #e7e3da;` +
-    `font-family:Arial,sans-serif;font-size:12px;color:#8a8784;text-align:center">` +
-    `Não quer mais receber estes e-mails? ` +
-    `<a href="${unsubscribeUrl(sendId)}" style="color:#e56d23">Descadastrar</a>.` +
+    `<div style="margin-top:32px;padding:24px 16px 8px;border-top:1px solid #ececec;` +
+    `font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#9a9a9a;text-align:center">` +
+    `<div style="font-weight:bold;color:#6b6b6b;font-size:13px;margin-bottom:2px">${nome}</div>` +
+    siteLine +
+    `<div style="margin-top:4px">Você recebeu este e-mail porque se cadastrou na ${nome}.</div>` +
+    `<div style="margin-top:10px">` +
+    `<a href="${unsubscribeUrl(sendId)}" style="color:#9a9a9a;text-decoration:underline">Cancelar inscrição</a>` +
+    `</div>` +
     `</div>`
   );
+}
+
+/** Extrai o domínio "site" a partir do e-mail remetente (contato@brewteco.com.br → brewteco.com.br). */
+function siteFromEmail(fromEmail?: string): string {
+  if (!fromEmail) return '';
+  const at = fromEmail.split('@')[1];
+  return at ? at.trim().toLowerCase() : '';
 }
 
 export interface RenderedEmail {
@@ -52,7 +70,7 @@ export interface RenderedEmail {
   html: string;
 }
 
-/** HTML final de um envio: variáveis + tracking + rodapé de descadastro. */
+/** HTML final de um envio: variáveis + tracking + rodapé + fundo branco forçado. */
 export function renderForSend(
   subject: string,
   html: string,
@@ -61,8 +79,19 @@ export function renderForSend(
 ): RenderedEmail {
   const withVars = interpolate(html, vars);
   const withClicks = rewriteLinks(withVars, sendId);
-  const footer = withVars.includes('/unsubscribe') ? '' : unsubscribeFooter(sendId);
-  return { subject: interpolate(subject, vars), html: withClicks + footer + pixel(sendId) };
+
+  const brand = String(vars.empresa ?? '').trim();
+  const site = siteFromEmail(String(vars.email_remetente ?? vars.from_email ?? '') || undefined);
+  const footer = withVars.includes('/unsubscribe') ? '' : unsubscribeFooter(sendId, brand, site);
+
+  // Envelope com fundo BRANCO: evita o tom creme que o Gmail aplica quando o
+  // e-mail não declara um background explícito.
+  const body =
+    `<div style="background-color:#ffffff;margin:0;padding:0;width:100%">` +
+    withClicks + footer + pixel(sendId) +
+    `</div>`;
+
+  return { subject: interpolate(subject, vars), html: body };
 }
 
 /** Preview (sem tracking), pra UI. */

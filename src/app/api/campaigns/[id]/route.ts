@@ -34,3 +34,34 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 400 });
   }
 }
+
+/**
+ * DELETE /api/campaigns/:id — remove uma campanha.
+ * - Rascunho / agendada / na fila: exclui de vez (e a fila de envios junto).
+ * - Já enviada (ou enviando): NÃO apaga o histórico; marca como 'archived'
+ *   (some da lista, mas o relatório de aberturas/cliques é preservado).
+ */
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const db = supabaseAdmin();
+
+  const { data: campaign, error: findErr } = await db
+    .from('campaigns')
+    .select('id, status')
+    .eq('id', params.id)
+    .single();
+  if (findErr) return NextResponse.json({ error: findErr.message }, { status: 404 });
+
+  const jaEnviou = ['sending', 'sent'].includes(campaign.status);
+
+  if (jaEnviou) {
+    const { error } = await db.from('campaigns').update({ status: 'archived' }).eq('id', params.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, archived: true });
+  }
+
+  // rascunho/agendada/queued: apaga a fila de envios e a campanha
+  await db.from('email_sends').delete().eq('campaign_id', params.id);
+  const { error } = await db.from('campaigns').delete().eq('id', params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, archived: false });
+}

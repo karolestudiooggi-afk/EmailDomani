@@ -47,24 +47,84 @@ export default function ClientsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {clients.map((c) => (
-            <Card key={c.id} className="flex flex-col p-5">
-              <h3 className="font-display text-lg text-ink">{c.brand_name}</h3>
-              <p className="mt-0.5 text-sm text-ink/50">{c.from_email}</p>
-              <div className="mt-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500" /> {c.daily_limit.toLocaleString('pt-BR')}/dia
-                </span>
-              </div>
-              {isAdmin && (
-                <Button variant="ghost" onClick={() => setEditing(c)} className="mt-4">
-                  Editar
-                </Button>
-              )}
-            </Card>
+            <ClientCard key={c.id} client={c} isAdmin={isAdmin} onEdit={() => setEditing(c)} onDeleted={reload} />
           ))}
         </div>
       )}
     </>
+  );
+}
+
+function ClientCard({
+  client,
+  isAdmin,
+  onEdit,
+  onDeleted,
+}: {
+  client: Client;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDeleted: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function remove() {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api(`/api/clients/${client.id}`, { method: 'DELETE' });
+      onDeleted();
+    } catch (e) {
+      setErr((e as Error).message);
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="flex flex-col p-5">
+      <h3 className="font-display text-lg text-ink">{client.brand_name}</h3>
+      <p className="mt-0.5 text-sm text-ink/50">{client.from_email}</p>
+      <div className="mt-3">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-500" /> {client.daily_limit.toLocaleString('pt-BR')}/dia
+        </span>
+      </div>
+
+      {err && <p className="mt-3 text-xs text-red-600">{err}</p>}
+
+      {isAdmin && (
+        confirming ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
+            <p className="text-xs text-red-700">Excluir <strong>{client.brand_name}</strong>? Não pode ser desfeito.</p>
+            <div className="mt-2 flex gap-2">
+              <Button variant="ghost" onClick={() => setConfirming(false)} className="flex-1">Cancelar</Button>
+              <button
+                onClick={remove}
+                disabled={busy}
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+              >
+                {busy ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 flex gap-2">
+            <Button variant="ghost" onClick={onEdit} className="flex-1">Editar</Button>
+            <button
+              onClick={() => setConfirming(true)}
+              title="Excluir cliente"
+              className="rounded-lg border border-line/30 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+            >
+              Excluir
+            </button>
+          </div>
+        )
+      )}
+    </Card>
   );
 }
 

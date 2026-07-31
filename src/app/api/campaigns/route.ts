@@ -12,6 +12,7 @@ export async function GET(req: Request) {
   let q = db
     .from('campaigns')
     .select('id, name, status, created_at, from_email, subject, client_id')
+    .neq('status', 'archived')
     .order('created_at', { ascending: false });
   if (clientId) q = q.eq('client_id', clientId);
   const { data, error } = await q;

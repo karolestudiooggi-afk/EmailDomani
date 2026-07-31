@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApi, api } from '../../lib/client-api';
 import { useSelectedClient } from '../../lib/use-client';
 import { ClientPicker } from '../../components/ClientPicker';
@@ -14,6 +14,15 @@ export default function ContactsPage() {
   const { data, loading, reload } = useApi<{ lists: ListRow[] }>(clientId ? `/api/lists?clientId=${clientId}` : null);
   const lists = data?.lists ?? [];
   const [selected, setSelected] = useState<string | null>(null);
+
+  // Recarrega a lista quando a aba volta ao foco. Import grande (milhares de
+  // contatos) pode demorar e a atualização automática não disparar; ao voltar
+  // pra aba, a lista aparece sem precisar de F5.
+  useEffect(() => {
+    const onFocus = () => reload();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [reload]);
 
   return (
     <>
@@ -84,8 +93,13 @@ function UploadCard({ clientId, onDone }: { clientId: string; onDone: () => void
       form.append('clientId', clientId);
       const res = await api<{ imported: number; skipped: number }>('/api/contacts', { method: 'POST', body: form });
       setMsg(`${res.imported} contatos importados${res.skipped ? `, ${res.skipped} ignorados` : ''}.`);
-      setName(''); setFile(null); onDone();
-    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+      setName(''); setFile(null);
+    } catch (e) {
+      setErr(`A importação demorou e a confirmação não chegou. Se a lista não aparecer, aguarde e atualize. (${(e as Error).message})`);
+    } finally {
+      setBusy(false);
+      onDone();
+    }
   }
 
   return (

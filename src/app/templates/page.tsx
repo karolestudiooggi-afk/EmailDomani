@@ -53,15 +53,66 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {templates.map((t) => (
-            <Card key={t.id} className="flex flex-col p-5">
-              <h3 className="font-display text-lg text-ink">{t.name}</h3>
-              <p className="mt-1 line-clamp-1 text-sm text-ink/55">{t.subject}</p>
-              <Button variant="ghost" onClick={() => setEditing(t)} className="mt-4">Editar</Button>
-            </Card>
+            <TemplateCard key={t.id} t={t} onEdit={() => setEditing(t)} onDeleted={reload} />
           ))}
         </div>
       )}
     </>
+  );
+}
+
+function TemplateCard({ t, onEdit, onDeleted }: { t: Template; onEdit: () => void; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function remove() {
+    setBusy(true); setErr(null);
+    try {
+      await api(`/api/templates/${t.id}`, { method: 'DELETE' });
+      onDeleted();
+    } catch (e) {
+      setErr((e as Error).message);
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="flex flex-col p-5">
+      <h3 className="font-display text-lg text-ink">{t.name}</h3>
+      <p className="mt-1 line-clamp-1 text-sm text-ink/55">{t.subject}</p>
+
+      {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+
+      {confirming ? (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
+          <p className="text-xs text-red-700">Excluir <strong>{t.name}</strong>? Não pode ser desfeito.</p>
+          <div className="mt-2 flex gap-2">
+            <Button variant="ghost" onClick={() => setConfirming(false)} className="flex-1">Cancelar</Button>
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+            >
+              {busy ? 'Excluindo…' : 'Excluir'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex gap-2">
+          <Button variant="ghost" onClick={onEdit} className="flex-1">Editar</Button>
+          <button
+            onClick={() => setConfirming(true)}
+            title="Excluir template"
+            className="rounded-lg border border-line/30 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+          >
+            Excluir
+          </button>
+        </div>
+      )}
+    </Card>
   );
 }
 

@@ -106,6 +106,7 @@ export async function processDispatchBatch(): Promise<{
       ...client.brand_fields,
       empresa: client.brand_name,
       email: row.email,
+      email_remetente: row.campaigns.from_email,
       nome: row.contacts?.name ?? '',
       ...(row.contacts?.fields ?? {}),
     };
