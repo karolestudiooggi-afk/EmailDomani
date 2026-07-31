@@ -29,7 +29,6 @@ function rewriteLinks(html: string, sendId: string): string {
   });
 }
 
-/** Rodapé de descadastro — nome do cliente + site (domínio do remetente). */
 function unsubscribeFooter(sendId: string, brand: string, site: string): string {
   const nome = brand || 'Nós';
   const siteLine = site
@@ -59,7 +58,6 @@ export interface RenderedEmail {
   html: string;
 }
 
-/** HTML final: variáveis + tracking + rodapé + fundo branco forçado. */
 export function renderForSend(
   subject: string,
   html: string,
