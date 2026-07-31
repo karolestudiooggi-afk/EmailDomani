@@ -1,11 +1,5 @@
 import { env } from '../env';
 
-/**
- * Substitui {{chave}} por valores. Variáveis em dois níveis:
- *  - do cliente: {{empresa}}, {{logo}}, {{assinatura}} (brand_fields)
- *  - do contato: {{nome}}, {{email}} e colunas da planilha
- * Chave ausente vira string vazia.
- */
 export function interpolate(
   template: string,
   vars: Record<string, string | null | undefined>,
@@ -16,12 +10,10 @@ export function interpolate(
   });
 }
 
-/** Link visível (rodapé): abre a página amigável de descadastro. */
 export function unsubscribeUrl(sendId: string): string {
   return `${env.APP_URL}/unsubscribe?s=${sendId}`;
 }
 
-/** Endpoint que o Gmail/Yahoo aciona via POST no descadastro one-click. */
 export function unsubscribePostUrl(sendId: string): string {
   return `${env.APP_URL}/api/unsubscribe?s=${sendId}`;
 }
@@ -32,14 +24,12 @@ function pixel(sendId: string): string {
 
 function rewriteLinks(html: string, sendId: string): string {
   return html.replace(/href="(https?:\/\/[^"]+)"/g, (_m, url: string) => {
-    // não reescreve links que já apontam para o próprio sistema (evita duplicar tracking)
     if (url.startsWith(env.APP_URL)) return `href="${url}"`;
     return `href="${env.APP_URL}/api/track/${sendId}?to=${encodeURIComponent(url)}"`;
   });
 }
 
-/** Rodapé de descadastro — injetado se o template ainda não tiver um.
- *  Usa o nome do cliente ({{empresa}}) e o site (domínio do remetente). */
+/** Rodapé de descadastro — nome do cliente + site (domínio do remetente). */
 function unsubscribeFooter(sendId: string, brand: string, site: string): string {
   const nome = brand || 'Nós';
   const siteLine = site
@@ -58,7 +48,6 @@ function unsubscribeFooter(sendId: string, brand: string, site: string): string 
   );
 }
 
-/** Extrai o domínio "site" a partir do e-mail remetente (contato@brewteco.com.br → brewteco.com.br). */
 function siteFromEmail(fromEmail?: string): string {
   if (!fromEmail) return '';
   const at = fromEmail.split('@')[1];
@@ -70,7 +59,7 @@ export interface RenderedEmail {
   html: string;
 }
 
-/** HTML final de um envio: variáveis + tracking + rodapé + fundo branco forçado. */
+/** HTML final: variáveis + tracking + rodapé + fundo branco forçado. */
 export function renderForSend(
   subject: string,
   html: string,
@@ -84,8 +73,6 @@ export function renderForSend(
   const site = siteFromEmail(String(vars.email_remetente ?? vars.from_email ?? '') || undefined);
   const footer = withVars.includes('/unsubscribe') ? '' : unsubscribeFooter(sendId, brand, site);
 
-  // Envelope com fundo BRANCO: evita o tom creme que o Gmail aplica quando o
-  // e-mail não declara um background explícito.
   const body =
     `<div style="background-color:#ffffff;margin:0;padding:0;width:100%">` +
     withClicks + footer + pixel(sendId) +
@@ -94,7 +81,6 @@ export function renderForSend(
   return { subject: interpolate(subject, vars), html: body };
 }
 
-/** Preview (sem tracking), pra UI. */
 export function renderPreview(html: string, vars: Record<string, string>): string {
   return interpolate(html, vars);
 }
