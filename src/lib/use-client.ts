@@ -6,10 +6,16 @@ import type { Client } from '../types';
 
 const STORAGE_KEY = 'domani.selectedClient';
 
+function initialClientId(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(STORAGE_KEY) ?? '';
+}
+
 /** Mantém a lista de clientes e qual está selecionado (persistido no navegador). */
 export function useSelectedClient() {
   const [clients, setClients] = useState<Client[]>([]);
-  const [clientId, setClientIdState] = useState<string>('');
+  // Já nasce com o cliente salvo no navegador — NÃO espera o /api/clients.
+  const [clientId, setClientIdState] = useState<string>(initialClientId);
   const [loading, setLoading] = useState(true);
 
   const setClientId = useCallback((id: string) => {
@@ -22,9 +28,12 @@ export function useSelectedClient() {
     try {
       const { clients } = await api<{ clients: Client[] }>('/api/clients');
       setClients(clients);
-      const saved = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null;
-      const valid = clients.find((c) => c.id === saved);
-      setClientIdState(valid ? valid.id : clients[0]?.id ?? '');
+      setClientIdState((current) => {
+        if (current && clients.some((c) => c.id === current)) return current;
+        const next = clients[0]?.id ?? '';
+        if (typeof window !== 'undefined' && next) window.localStorage.setItem(STORAGE_KEY, next);
+        return next;
+      });
     } finally {
       setLoading(false);
     }
