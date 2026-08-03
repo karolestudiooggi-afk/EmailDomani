@@ -22,12 +22,13 @@ interface ClientRow {
 }
 
 /**
- * Trava de execução: o cron roda a cada minuto, mas um lote grande pode demorar
- * mais que isso. Sem essa trava, a execução seguinte pegaria as MESMAS linhas
- * ainda pendentes e o contato receberia o e-mail duplicado.
- * (Vale para 1 processo — mantenha o PM2 em modo fork, não cluster.)
+ * Trava de execução com AUTO-LIBERAÇÃO. O cron roda a cada minuto; um lote não
+ * pode sobrepor o anterior (evita envio duplicado). Mas se um lote travar/morrer
+ * sem liberar, guardamos a hora de início: passados DISPATCH_STALE_MS, a próxima
+ * execução assume que a anterior morreu e destrava sozinha (sem restart manual).
  */
-let dispatchRunning = false;
+let dispatchStartedAt = 0;
+const DISPATCH_STALE_MS = 90_000;
 
 /**
  * Worker do cron. A cada minuto:
@@ -42,9 +43,13 @@ export async function processDispatchBatch(): Promise<{
   failed: number;
   skipped?: boolean;
 }> {
-  // já tem um lote rodando → sai sem fazer nada (evita envio duplicado)
-  if (dispatchRunning) return { released: 0, processed: 0, sent: 0, failed: 0, skipped: true };
-  dispatchRunning = true;
+  // já tem um lote rodando há pouco → sai (evita duplicado). Se passou do tempo
+  // limite, considera que o anterior morreu e assume a execução.
+  const agora = Date.now();
+  if (dispatchStartedAt && agora - dispatchStartedAt < DISPATCH_STALE_MS) {
+    return { released: 0, processed: 0, sent: 0, failed: 0, skipped: true };
+  }
+  dispatchStartedAt = agora;
   try {
   const db = supabaseAdmin();
 
@@ -138,7 +143,7 @@ export async function processDispatchBatch(): Promise<{
   await closeFinishedCampaigns(db);
   return { released, processed: pending.length, sent, failed };
   } finally {
-    dispatchRunning = false;
+    dispatchStartedAt = 0;
   }
 }
 
