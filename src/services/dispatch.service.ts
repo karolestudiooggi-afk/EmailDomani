@@ -94,6 +94,11 @@ export async function processDispatchBatch(): Promise<{
   let sent = 0;
   let failed = 0;
 
+  // GUARDA ANTI-DUPLICATA (em memória, para este lote): garante que o mesmo
+  // e-mail nunca seja enviado duas vezes na mesma campanha, mesmo que apareça
+  // repetido na fila.
+  const jaEnviadoNesteLote = new Set<string>();
+
   for (const row of pending) {
     const clientId = row.campaigns.client_id;
     const client = clients.get(clientId);
@@ -104,6 +109,35 @@ export async function processDispatchBatch(): Promise<{
     }
     // cota do cliente esgotada hoje → deixa pendente para o próximo dia/lote
     if ((remaining.get(clientId) ?? 0) <= 0) continue;
+
+    // chave única por campanha+email (normalizado)
+    const emailKey = `${row.campaign_id}::${(row.email || '').trim().toLowerCase()}`;
+
+    // 1) já enviei este e-mail nesta campanha DENTRO deste lote?
+    if (jaEnviadoNesteLote.has(emailKey)) {
+      await db
+        .from('email_sends')
+        .update({ status: 'skipped', error: 'Duplicado: e-mail já enviado nesta campanha' })
+        .eq('id', row.id);
+      continue;
+    }
+
+    // 2) já existe um envio 'sent' para este e-mail nesta campanha no BANCO?
+    //    (protege contra reprocessamento entre lotes / reinícios)
+    const { count: jaSent } = await db
+      .from('email_sends')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', row.campaign_id)
+      .eq('email', row.email)
+      .eq('status', 'sent');
+    if ((jaSent ?? 0) > 0) {
+      jaEnviadoNesteLote.add(emailKey);
+      await db
+        .from('email_sends')
+        .update({ status: 'skipped', error: 'Duplicado: e-mail já enviado nesta campanha' })
+        .eq('id', row.id);
+      continue;
+    }
 
     const { transporter, mock } = agency;
 
@@ -131,6 +165,7 @@ export async function processDispatchBatch(): Promise<{
 
     if (result.ok) {
       sent++;
+      jaEnviadoNesteLote.add(emailKey);
       remaining.set(clientId, (remaining.get(clientId) ?? 1) - 1);
       await db.from('email_sends').update({ status: 'sent', sent_at: now(), message_id: result.messageId }).eq('id', row.id);
     } else {
