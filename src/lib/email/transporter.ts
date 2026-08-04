@@ -11,6 +11,7 @@ export interface ClientSmtp {
 }
 
 // Porta 465 = TLS direto (SSL). Demais (587, 2525, 25) = STARTTLS.
+// Deriva sozinho pela porta — não depende de o usuário marcar a caixinha certa.
 function isDirectTls(port: number, secureFlag: boolean | null): boolean {
   if (port === 465) return true;
   if (port === 587 || port === 2525 || port === 25) return false;
@@ -19,6 +20,8 @@ function isDirectTls(port: number, secureFlag: boolean | null): boolean {
 
 /**
  * Transporter ÚNICO da agência (conta SendPulse), lido do .env.
+ * É o mesmo para todos os clientes — o que muda por cliente é só o remetente
+ * (from_name/from_email). Sem SMTP_HOST no .env → modo mock (loga, não envia).
  */
 let _agency: { transporter: Transporter; mock: boolean } | null = null;
 
@@ -35,12 +38,12 @@ export function buildAgencyTransporter(): { transporter: Transporter; mock: bool
     port,
     secure: isDirectTls(port, env.SMTP_SECURE),
     auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS ?? '' } : undefined,
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    // SEM pool: com pool + socketTimeout, um OK lento do SendPulse fazia o
+    // nodemailer RE-ENVIAR a mesma mensagem (a pessoa recebia várias vezes).
+    // Sem pool, cada envio é 1 conexão = 1 entrega. Timeouts altos e generosos.
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
   });
   _agency = { transporter, mock: false };
   return _agency;
@@ -48,6 +51,7 @@ export function buildAgencyTransporter(): { transporter: Transporter; mock: bool
 
 /**
  * (Legado) Constrói um transporter a partir do SMTP de um cliente.
+ * Mantido por compatibilidade; o envio agora usa buildAgencyTransporter().
  */
 export function buildTransporter(c: ClientSmtp): { transporter: Transporter; mock: boolean } {
   if (!c.smtp_host) {
@@ -61,17 +65,14 @@ export function buildTransporter(c: ClientSmtp): { transporter: Transporter; moc
     auth: c.smtp_user
       ? { user: c.smtp_user, pass: c.smtp_pass_enc ? decrypt(c.smtp_pass_enc) : '' }
       : undefined,
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
   });
   return { transporter, mock: false };
 }
 
-/** Verifica se o SMTP da agência (do .env) conecta. */
+/** Verifica se o SMTP da agência (do .env) conecta. Usado no botão "testar conexão". */
 export async function verifyAgencySmtp(): Promise<{ ok: boolean; error?: string }> {
   if (!env.SMTP_HOST) return { ok: false, error: 'SMTP_HOST não configurado no .env.' };
   return verifySmtp({
